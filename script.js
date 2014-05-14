@@ -27,9 +27,9 @@ function updateGrid() {
 		for(x = 0; x < 4; x++) {
 			e = gridElem.getElementsByTagName("div")[(y * 4) + x];
 
-			if(grid[y][x] !== -1) {
-				e.innerHTML = grid[y][x];
-				e.setAttribute("class", "b" + grid[y][x]);
+			if(grid[x][y] !== 0) {
+				e.innerHTML = grid[x][y];
+				e.setAttribute("class", "b" + grid[x][y]);
 			} else {
 				e.innerHTML = "";
 				e.setAttribute("class", "bv");
@@ -38,79 +38,98 @@ function updateGrid() {
 	}
 }
 
-function moveGrid(direction) {
-	var x, y, dontTouch = [[0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0]];
 
-	if(direction === 1) {
-		for(y = 3; y >= 0; y--) {
-			for(x = 0; x < 4; x++) {
-				if(y != 0 && grid[y][x] > 0 && dontTouch[y][x] === 0) {
-					if(grid[y - 1][x] === grid[y][x]) {
-						addScore(grid[y][x]);
-						grid[y][x] = -1;
-						grid[y - 1][x] *= 2;
-						dontTouch[y-1][x] = 1;
-					} else if(grid[y - 1][x] === -1) {
-						grid[y - 1][x] = grid[y][x];
-						grid[y][x] = -1;
-					}
-				}
+function findTarget(array,x,stop) {
+	var t;
+	// if the position is already on the first, don't evaluate
+	if (x==0) {
+		return x;
+	}
+	for(t=x-1;t>=0;t--) {
+		if (array[t]!=0) {
+			if (array[t]!=array[x]) {
+				// merge is not possible, take next position
+				return t+1;
 			}
-		}
-	} else if(direction === 2) {
-		for(x = 0; x < 4; x++) {
-			for(y = 0; y < 4; y++) {
-				if(x != 3 && grid[y][x] > 0 && dontTouch[y][x] === 0) {
-					if(grid[y][x + 1] === grid[y][x]) {
-						addScore(grid[y][x]);
-						grid[y][x] = -1;
-						grid[y][x + 1] *= 2;
-						dontTouch[y][x+1] = 1;
-					} else if(grid[y][x + 1] === -1) {
-						grid[y][x + 1] = grid[y][x];
-						grid[y][x] = -1;
-					}
-				}
-			}
-		}
-	} else if(direction === 3) {
-		for(x = 3; x >= 0; x--) {
-			for(y = 3; y >= 0; y--) {
-				if(x != 0 && grid[y][x] > 0 && dontTouch[y][x] === 0) {
-					if(grid[y][x - 1] === grid[y][x]) {
-						addScore(grid[y][x]);
-						grid[y][x] = -1;
-						grid[y][x - 1] *= 2;
-						dontTouch[y][x-1] = 1;
-					} else if(grid[y][x - 1] === -1) {
-						grid[y][x - 1] = grid[y][x];
-						grid[y][x] = -1;
-					}
-				}
-			}
-		}
-	} else if(direction === 4) {
-		for(y = 0; y < 4; y++) {
-			for(x = 3; x >= 0; x--) {
-				if(y != 3 && grid[y][x] > 0 && dontTouch[y][x] === 0) {
-					if(grid[y + 1][x] === grid[y][x]) {
-						addScore(grid[y][x]);
-						grid[y][x] = -1;
-						grid[y + 1][x] *= 2;
-						dontTouch[y+1][x] = 1;
-					} else if(grid[y + 1][x] === -1) {
-						grid[y + 1][x] = grid[y][x];
-						grid[y][x] = -1;
-					}
-				}
+			return t;
+		} else {
+			// we should not slide further, return this one
+			if (t==stop) {
+				return t;
 			}
 		}
 	}
-
-	spawnRand();
-	updateGrid();
-	getScore();
+	// we did not find a
+	return x;
 }
+
+
+function slideArray(array) {
+	var x,t,stop=0;
+
+	for (x=0;x<array.length;x++) {
+		if (array[x]!=0) {
+			t = findTarget(array,x,stop);
+			// if target is not original position, then move or merge
+			if (t!=x) {
+				// if target is not zero, set stop to avoid double merge
+				if (array[t]!=0) {
+					score+=array[t]+array[x];
+					stop = t+1;
+				}
+				array[t]+=array[x];
+				array[x]=0;
+			}
+		}
+	}
+}
+
+function rotateBoard() {
+	var i,j,n=4;
+	var tmp;
+	for (i=0; i<n/2; i++){
+		for (j=i; j<n-i-1; j++){
+			tmp = grid[i][j];
+			grid[i][j] = grid[j][n-i-1];
+			grid[j][n-i-1] = grid[n-i-1][n-j-1];
+			grid[n-i-1][n-j-1] = grid[n-j-1][i];
+			grid[n-j-1][i] = tmp;
+		}
+	}
+}
+
+function moveUp() {
+	var x;
+	for (x=0;x<4;x++) {
+		slideArray(grid[x]);
+	}
+}
+
+function moveLeft() {
+	rotateBoard();
+	moveUp();
+	rotateBoard();
+	rotateBoard();
+	rotateBoard();
+}
+
+function moveDown() {
+	rotateBoard();
+	rotateBoard();
+	moveUp();
+	rotateBoard();
+	rotateBoard();
+}
+
+function moveRight() {
+	rotateBoard();
+	rotateBoard();
+	rotateBoard();
+	moveUp();
+	rotateBoard();
+}
+
+
 
 // SCORE FUNCTIONS
 
@@ -158,8 +177,8 @@ function getScore() {
 
 	for(y = 0; y < 4; y++) {
 		for(x = 0; x < 4; x++) {
-			if(grid[y][x] !== -1)
-				sum += grid[y][x];
+			if(grid[x][y] !== 0)
+				sum += grid[x][y];
 		}
 	}
 
@@ -245,16 +264,22 @@ function gameOver() {
 // UTIL FUNCTIONS
 
 function keyPress(code) {
-	if(code === 37 || code === 74)
-		moveGrid(3); // left
-	else if(code === 38 || code === 73)
-		moveGrid(1); // up
-	else if(code === 39 || code === 76)
-		moveGrid(2); // right
-	else if(code === 40 || code === 75)
-		moveGrid(4); // down
-	else if(code === 13)
+	if (code === 13) {
 		init(); // reinit
+	}
+	else { 
+		if(code === 37 || code === 74)
+			moveLeft(); // left
+		else if(code === 38 || code === 73)
+			moveUp(); // up
+		else if(code === 39 || code === 76)
+			moveRight(); // right
+		else if(code === 40 || code === 75)
+			moveDown(); // down
+		spawnRand();
+		updateGrid();
+		getScore();
+	}
 }
 
 function spawnRand() {
@@ -262,7 +287,7 @@ function spawnRand() {
 
 	for(y = 0; y < 4; y++) {
 		for(x = 0; x < 4; x++) {
-			if(grid[y][x] === -1)
+			if(grid[x][y] === 0)
 				possibles.push([x, y]);
 		}
 	}
@@ -273,7 +298,7 @@ function spawnRand() {
 			x = randomBlock[0],
 			y = randomBlock[1];
 
-		grid[y][x] = randomValue;
+		grid[x][y] = randomValue;
 	} else {
 		if(!checkMovable()) {
 			gameOver();
@@ -284,11 +309,11 @@ function spawnRand() {
 function checkMovable() {
 	for(y = 0; y < 4; y++) {
 		for(x = 0; x < 4; x++) {
-			if((grid[y + 1] !== undefined &&
-					(grid[y + 1][x] === grid[y][x] || grid[y + 1][x] == -1)) ||
-				 (grid[y][x + 1] !== undefined &&
-				 	(grid[y][x + 1] === grid[y][x] || grid[y][x + 1] == -1)) ||
-				  grid[y][x] == -1)
+			if((grid[x + 1] !== undefined &&
+					(grid[x + 1][y] === grid[x][y] || grid[x + 1][y] == 0)) ||
+				 (grid[x][y + 1] !== undefined &&
+				 	(grid[x][y + 1] === grid[x][y] || grid[x][y + 1] == 0)) ||
+				  grid[x][y] == 0)
 				return true;
 		}
 	}
@@ -312,7 +337,7 @@ function initBest() {
 }
 
 function initGrid() {
-	grid = [[-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]];
+	grid = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
 
 	spawnRand();
 	spawnRand();
@@ -334,10 +359,10 @@ document.onkeydown = function(e) { keyPress(e.keyCode); }
 
 document.getElementsByTagName("header")[0].getElementsByTagName("a")[0].onclick = init;
 
-touchElem.getElementsByTagName("div")[0].onclick = function() { moveGrid(1); }
-touchElem.getElementsByTagName("div")[1].onclick = function() { moveGrid(3); }
-touchElem.getElementsByTagName("div")[2].onclick = function() { moveGrid(2); }
-touchElem.getElementsByTagName("div")[3].onclick = function() { moveGrid(4); }
+touchElem.getElementsByTagName("div")[0].onclick = function() { moveUp(); }
+touchElem.getElementsByTagName("div")[1].onclick = function() { moveLeft(); }
+touchElem.getElementsByTagName("div")[2].onclick = function() { moveRight(); }
+touchElem.getElementsByTagName("div")[3].onclick = function() { moveDown(); }
 
 initGrid();
 initBest();
