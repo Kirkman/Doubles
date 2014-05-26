@@ -215,3 +215,4 @@ pip-log.txt
 .mr.developer.cfg
 bin/
 doubles-screenshot.png
+doubles.json

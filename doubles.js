@@ -9,6 +9,7 @@ load(js.exec_dir + "helper-functions.js");
 
 
 // COLORS
+var lowBlack = 'NK0';
 var lowWhite = 'NW0';
 var highWhite = 'HW0';
 var lowCyan = 'NC0';
@@ -543,7 +544,43 @@ function updateScoreList(finalScore) {
 	jsonClient.disconnect();
 }
 
+function instructions() {
+	// Draw game board
+	var instructFrame = new Frame(7, 3, 66, 19, BG_LIGHTGRAY,frame);
+	instructFrame.crlf();
+	instructFrame.crlf();
+	instructFrame.center('H O W   T O   P L A Y');
+	instructFrame.crlf();
+	instructFrame.center('---------------------');
+	instructFrame.crlf();
+	instructFrame.crlf();
+	instructFrame.crlf();
+	instructFrame.center('Use your arrow keys to slide tiles across the board.');
+	instructFrame.crlf();
+	instructFrame.crlf();
+	instructFrame.center('When two tiles with the same number touch, they merge into one!');
+	instructFrame.crlf();
+	instructFrame.crlf();
+	instructFrame.center('The game ends when the board is full and no merges are possible.');
+	instructFrame.crlf();
+	instructFrame.crlf();
+	instructFrame.center('Press [Q] to exit the game early.');
+	instructFrame.crlf();
+	instructFrame.crlf();
+	instructFrame.crlf();
+	instructFrame.crlf();
+	instructFrame.center('T O   C O N T I N U E ,   P R E S S   [ E N T E R ]');
+	instructFrame.crlf();
+	instructFrame.draw();
+	instructFrame.top();
 
+	userInput = '';
+	while( ascii(userInput) !== 13) {
+		userInput = console.getkey(K_NOCRLF|K_NOECHO);
+	}
+	instructFrame.close();
+	instructFrame.delete();
+}
 
 
 
@@ -591,6 +628,9 @@ boardFrame.top();
 // Create frame for fixed tiles
 var fixedFrame = new Frame(1, 1, 80, 23, 0, frame);
 fixedFrame.top();
+
+// display instructions
+instructions();
 
 // Create frame for tiles in motion
 //var active = new Frame(1, 1, 80, 25, 0, frame);
