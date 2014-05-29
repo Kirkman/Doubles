@@ -1,7 +1,7 @@
 Doubles
 =======
 
-![screenshot](http://www.breakintochat.com/files/misc/doubles-screenshot.png)
+![screenshot](http://www.breakintochat.com/files/misc/doubles-animation.gif)
 
 DOUBLES is an ANSI adaptation of the game "2048" for Synchronet BBSes.
 
