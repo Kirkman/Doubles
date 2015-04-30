@@ -4,7 +4,7 @@ load("frame.js");
 load("layout.js");
 // some of the custom functions I'm using
 load(js.exec_dir + "helper-functions.js");
-
+load(js.exec_dir + "frame-transitions.js");
 
 
 
@@ -25,16 +25,34 @@ var frac12 = ascii(171);
 
 
 // VALUES
+var termRows = console.screen_rows;
+var termCols = console.screen_columns;
+
+var largeTerm = false;
+if (termRows >= 59 && termCols >= 132) {
+	largeTerm = true;
+}
+var tileW = 17;
+var tileH = 5;
+var suffix = '';
+if (largeTerm) { 
+	suffix = '-large';
+	tileW = 30;
+	tileH = 12;
+}
+
 
 var grid;
 var score = 0, sum = 0;
 var infoText;
 var level = 0, levelText, levelBar;
-var best = 0;
 
 var player = new Object();
-player.score = '';
+player.highscore = '';
 player.name = '';
+player.list = [];
+player.weight = [];
+player.startTiles = 2;
 
 
 
@@ -48,7 +66,11 @@ function updateGrid() {
 		for(x = 0; x < 4; x++) {
 			if(grid[x][y] !== 0) {
 				fixedTiles[x][y].invalidate();
-				fixedTiles[x][y].load(js.exec_dir + '/ansi/' + grid[x][y].toString() + '.ans', 16, 4);
+				fixedTiles[x][y].transparent = true;
+				fixedTiles[x][y].load(js.exec_dir + '/bin/' + grid[x][y].toString() + suffix + '.bin', tileW, tileH);
+				// ascii(219) = solid block
+				maskFrame( fixedTiles[x][y], ascii(219), LIGHTGREEN );
+				fixedTiles[x][y]
 				fixedTiles[x][y].open();
 			} else {
 				fixedTiles[x][y].close();
@@ -107,7 +129,7 @@ function findTarget(array,x,stop) {
 
 
 function slideArray(array) {
-	var x,t,stop=0;
+	var x,t,stop=0,success=false;
 
 	for (x=0;x<array.length;x++) {
 		if (array[x]!=0) {
@@ -122,9 +144,11 @@ function slideArray(array) {
 				}
 				array[t]+=array[x];
 				array[x]=0;
+				success = true;
 			}
 		}
 	}
+	return success;
 }
 
 function rotateBoard() {
@@ -142,34 +166,41 @@ function rotateBoard() {
 }
 
 function moveUp() {
-	var x;
+	var x,success;
 	for (x=0;x<4;x++) {
-		slideArray(grid[x]);
+		success |= slideArray(grid[x]);
 	}
+	return success;
 }
 
 function moveLeft() {
+	var success;
 	rotateBoard();
-	moveUp();
+	success = moveUp();
 	rotateBoard();
 	rotateBoard();
 	rotateBoard();
+	return success;
 }
 
 function moveDown() {
+	var success;
 	rotateBoard();
 	rotateBoard();
-	moveUp();
+	success = moveUp();
 	rotateBoard();
 	rotateBoard();
+	return success;
 }
 
 function moveRight() {
+	var success;
 	rotateBoard();
 	rotateBoard();
 	rotateBoard();
-	moveUp();
+	success = moveUp();
 	rotateBoard();
+	return success;
 }
 
 
@@ -232,41 +263,19 @@ function getScore() {
 }
 
 function updateScore() {
-//	updateBest();
 //	updateLevel();
 	var currentScore = score + sum;
-	currentScore = highYellowDarkBlue + currentScore.toString()
-	statusFrame.center( currentScore.center(10) );
+	statusFrame.center( 
+		highYellowDarkBlue + 
+		'SCORE: ' + 
+		currentScore.toString() + 
+		'            [Q] TO QUIT' 
+	);
 	statusFrame.cycle();
 }
 
 
 // LEVEL FUNCTIONS
-
-function getLevelText(lvl) {
-	if(lvl === 1) // 4+
-		return "Welcome newbie";
-	else if(lvl === 2) // 16+
-		return "Now you're playing";
-	else if(lvl === 3) // 64+
-		return "Keep calm and press up";
-	else if(lvl === 4) // 256+
-		return "That's okay for a first time I guess";
-	else if(lvl === 5) // 1024+
-		return "That's okay for a second time I guess";
-	else if(lvl === 6) // 4,096+
-		return "This is getting serious isn't it";
-	else if(lvl === 7) // 16,384+
-		return "Wow!";
-	else if(lvl === 8) // 65,536+
-		return "Can I have an autograph?";
-	else if(lvl === 9) // 262,144+
-		return "You're not supposed to see this, stop";
-	else if(lvl === 10) // 1,048,576+
-		return "I'm pretty sure it's illegal to use supercomputers for that";
-	else
-		return "";
-}
 
 function updateLevel() {
 	level = Math.floor(Math.log(score + sum) / Math.log(4));
@@ -276,9 +285,7 @@ function updateLevel() {
 	if(level < 0)
 		level = 0;
 
-	var desc = getLevelText(level);
-
-	levelText = "Level " + level + (desc === "" ? "" : (" — " + desc));
+	levelText = "Level " + level;
 //	levelBar.style.width = (level * 10) + "%";
 }
 
@@ -287,16 +294,35 @@ function updateLevel() {
 
 function gameOver() {
 	// Close game board
+	var wipeFrame = new Frame(1, 1, termCols, termRows, undefined, frame);
+	wipeFrame.transparent = true;
+	wipeFrame.open();
+	if ( largeTerm ) {
+		// delay on small screen
+		wipeRight(wipeFrame,4,BLACK,0);
+	}
+	else {
+		// remove the delay to speed up wipe on large screen
+		wipeRight(wipeFrame,4,BLACK,1);
+	}
+
 	statusFrame.close();
 	statusFrame.delete();
 	boardFrame.close();
 	boardFrame.delete();
 	fixedFrame.close();
 	fixedFrame.delete();
+	wipeFrame.close();
+	wipeFrame.delete();
 
 	var finalScore = score + sum;
-	var scoreFrame = new Frame(1, 1, 80, 24, 0, frame);
-	scoreFrame.crlf();
+
+	var scoW = 80;
+	if (largeTerm) { var scoH = 40; }
+	else { var scoH = 24; }
+	var scoX = findCenterCoord( termCols, scoW );
+	var scoY = findCenterCoord( termRows, scoH );
+	var scoreFrame = new Frame(scoX, scoY, scoW, scoH, BG_BLACK, frame);
 	scoreFrame.crlf();
 	scoreFrame.center(highWhite + player.name + lowWhite + ', this time you scored ' + highCyan + finalScore.toString() );
 	scoreFrame.crlf();
@@ -315,16 +341,29 @@ function gameOver() {
 		if ( playerList.length > 0 ) {
 			playerList  = sortByKey(playerList, 'highscore');
 			//debug( JSON.stringify( playerList, null, '\t' ) );
-			var scoresPerScreen = 8;
+			if (largeTerm) {
+				var scoresPerScreen = 16;
+			}
+			else {
+				var scoresPerScreen = 8;
+			}
 			if ( playerList.length < scoresPerScreen ) { scoresPerScreen = playerList.length; }
+			scoreFrame.gotoxy(2, scoreFrame.getxy().y);
+			scoreFrame.putmsg(highBlack + 'Player');
+			scoreFrame.gotoxy(28, scoreFrame.getxy().y);
+			scoreFrame.putmsg(highBlack + 'Score');
+			scoreFrame.gotoxy(47, scoreFrame.getxy().y);
+			scoreFrame.putmsg(highBlack + 'BBS');
+			scoreFrame.crlf();
+			scoreFrame.crlf();
 			for (var i=0; i<scoresPerScreen; i++) {
 					//debug(playerList[i].name + ' | ' + playerList[i].highscore);
 					var scoreColor = lowWhite;
 					if (playerList[i].name == user.alias) { scoreColor = highWhite; }
 					scoreFrame.gotoxy(2, scoreFrame.getxy().y);
 					scoreFrame.putmsg(scoreColor + playerList[i].name);
-					scoreFrame.gotoxy(32, scoreFrame.getxy().y);
-					scoreFrame.putmsg(scoreColor + playerList[i].highscore);
+					scoreFrame.gotoxy(28, scoreFrame.getxy().y);
+					scoreFrame.putmsg(scoreColor + playerList[i].highscore.toLocaleString());
 					scoreFrame.gotoxy(47, scoreFrame.getxy().y);
 					scoreFrame.putmsg(scoreColor + playerList[i].system);
 					scoreFrame.crlf();			
@@ -335,11 +374,11 @@ function gameOver() {
 					}
 			}
 		}
+		jsonClient.disconnect();
 	} catch(err) {
 		console.write(LOG_ERR, "JSON client error: " + err);
 		return false;
 	}
-	jsonClient.disconnect();
 
 
 	scoreFrame.crlf();
@@ -359,8 +398,12 @@ function gameOver() {
 	frame.cycle();
 
 	// Credits screen
-	var creditsFrame = new Frame(1, 6, 80, 18, 0, frame);
-	creditsFrame.load(js.exec_dir + '/ansi/credits.ans', 80, 18);
+	var creW = 80;
+	var creH = 18;
+	var creX = findCenterCoord( termCols, creW );
+	var creY = findCenterCoord( termRows, creH );
+	var creditsFrame = new Frame(creX, creY, creW, creH, 0, frame);
+	creditsFrame.load(js.exec_dir + '/ansi/credits.ans', creW, creH);
 	creditsFrame.draw();
 	creditsFrame.top();
 	frame.cycle();
@@ -380,54 +423,86 @@ function gameOver() {
 // UTIL FUNCTIONS
 
 function keyPress(code) {
-	if (ascii(code) === 81 || ascii(code) === 113 )  { gameOver(); } // reinit
+	// If they press "Q"
+	if (ascii(code) === 81 || ascii(code) === 113 )  { 
+		gameOver();  // reinit
+	}
+
+	// If they press an arrow key
 	else if (code === KEY_LEFT || KEY_UP || KEY_RIGHT || KEY_DOWN ) {
-			 if (code === KEY_LEFT )   { moveLeft(); } // left
-		else if (code === KEY_UP )     { moveUp(); } // up
-		else if (code === KEY_RIGHT )  { moveRight(); } // right
-		else if (code === KEY_DOWN )   { moveDown(); } // down
-		afterMove();
+  		var success = false;
+			 if (code === KEY_LEFT )   { success = moveLeft(); } // left
+		else if (code === KEY_UP )     { success = moveUp(); } // up
+		else if (code === KEY_RIGHT )  { success = moveRight(); } // right
+		else if (code === KEY_DOWN )   { success = moveDown(); } // down
+
+		// Only add to score, spawn new tile, etc if they actually were able
+		// to slide in the direction they selected. 
+		if (success) {
+			afterMove();
+		}
+		// If they couldn't slide, then let's check if the game is over.
+		else {
+			if(!checkMovable()) {
+				gameOver();
+			}
+		}
 	}
 }
 
-function spawnRand() {
-	var x, y, possibles = [];
 
-	// search grid for empty coordinates, store them in possibles[].
-	for(y = 0; y < 4; y++) {
-		for(x = 0; x < 4; x++) {
-			if(grid[x][y] === 0)
-				possibles.push([x, y]);
+
+
+function spawnRand(num) {
+	num = num || 1;
+	// Use a loop to spawn as many tiles as specified
+	for (var loop=0; loop<num; loop++) {
+		var x, y, possibles = [];
+
+		// search grid for empty coordinates, store them in possibles[].
+		for(y = 0; y < 4; y++) {
+			for(x = 0; x < 4; x++) {
+				if(grid[x][y] === 0)
+					possibles.push([x, y]);
+			}
 		}
-	}
 
-	// choose one of the coordinates in possibles[] for new tile.
-	if(possibles.length) {
-		var randomValue = (Math.floor(Math.random() * 9) === 8 ? 4 : 2);
-		var randomBlock = possibles[(Math.floor(Math.random() * possibles.length))];
-		var x = randomBlock[0];
-		var y = randomBlock[1];
-		var i;
-		grid[x][y] = randomValue;
-		// animate "creation" of new tile 
-		for(i = 0; i < 4; i++) {
+		// choose one of the coordinates in possibles[] for new tile.
+		if( possibles.length ) {
+// 			var randomValue = (Math.floor(Math.random() * 9) === 8 ? 4 : 2);
+			// The possible tile values and their probabilities depend
+			// on the player's chosen difficulty level.
+			var randomValue = weightedRandom( player.list, player.weight );
+			var randomBlock = possibles[(Math.floor(Math.random() * possibles.length))];
+			var x = randomBlock[0];
+			var y = randomBlock[1];
+			var i;
+			
+			grid[x][y] = randomValue;
+			// animate "creation" of new tile 
+			for(i = 0; i < 4; i++) {
+				fixedTiles[x][y].invalidate();
+				fixedTiles[x][y].transparent = true;
+				fixedTiles[x][y].load(js.exec_dir + '/bin/new-tile-' + i.toString() + suffix + '.bin', tileW, tileH);
+				maskFrame( fixedTiles[x][y], ascii(219), LIGHTGREEN );
+				fixedTiles[x][y].draw();
+				// slight pause
+				mswait(30);
+			}
+			// display new title
 			fixedTiles[x][y].invalidate();
-			fixedTiles[x][y].load(js.exec_dir + '/ansi/new-tile-' + i.toString() + '.ans', 16, 4);
+			fixedTiles[x][y].transparent = true;
+			fixedTiles[x][y].load(js.exec_dir + '/bin/' + grid[x][y].toString() + suffix  + '.bin', tileW, tileH);
+			maskFrame( fixedTiles[x][y], ascii(219), LIGHTGREEN );
 			fixedTiles[x][y].draw();
-			// slight pause
-			mswait(50);
 		}
-		// display new title
-		fixedTiles[x][y].invalidate();
-		fixedTiles[x][y].load(js.exec_dir + '/ansi/' + grid[x][y].toString() + '.ans', 16, 4);
-		fixedTiles[x][y].draw();
-	}
-	else {
-		if(!checkMovable()) {
-			gameOver();
+		else {
+			if(!checkMovable()) {
+				gameOver();
+			}
 		}
-	}
-}
+	} // end for loop
+} // end spawnRand(num)
 
 function checkMovable() {
 	for(y = 0; y < 4; y++) {
@@ -455,14 +530,20 @@ function initGrid() {
 	grid = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
 	//log( JSON.stringify(grid) );
 
-	spawnRand();
-	spawnRand();
-
+	// Number of tiles is based on player's difficulty choice.
+	spawnRand(player.startTiles);
 	//updateGrid();
 }
 
 function init() {
-	initPlayer();
+	var playerInList = initPlayer();
+	// If it's the player's first time, display instructions
+	if (!playerInList) {
+		instructions();
+	}
+	// Let user set difficulty level
+	difficulty();
+	// generate the titles
 	initGrid();
 }
 
@@ -515,6 +596,7 @@ function initPlayer() {
 		return false;
 	}
 	jsonClient.disconnect();
+	return playerInList;
 }
 
 
@@ -546,7 +628,11 @@ function updateScoreList(finalScore) {
 
 function instructions() {
 	// Draw game board
-	var instructFrame = new Frame(7, 3, 66, 19, BG_LIGHTGRAY,frame);
+	var insW = 66;
+	var insH = 19;
+	var insX = findCenterCoord( termCols, insW );
+	var insY = findCenterCoord( termRows, insH );
+	var instructFrame = new Frame(insX, insY, insW, insH, BG_LIGHTGRAY,frame);
 	instructFrame.crlf();
 	instructFrame.crlf();
 	instructFrame.center('H O W   T O   P L A Y');
@@ -584,6 +670,52 @@ function instructions() {
 
 
 
+function difficulty() {
+	// Draw game board
+	var difW = 66;
+	var difH = 12;
+	var difX = findCenterCoord( termCols, difW );
+	var difY = findCenterCoord( termRows, difH );
+	var difficultyFrame = new Frame(difX, difY, difW, difH, BG_LIGHTGRAY,frame);
+	difficultyFrame.crlf();
+	difficultyFrame.crlf();
+	difficultyFrame.center('N E W   G A M E');
+	difficultyFrame.crlf();
+	difficultyFrame.center('---------------');
+	difficultyFrame.crlf();
+	difficultyFrame.crlf();
+	difficultyFrame.crlf();
+	difficultyFrame.center('To play a ' + lowCyan + 'normal' + lowBlack + ' game, press [Enter].');
+	difficultyFrame.crlf();
+	difficultyFrame.crlf();
+	difficultyFrame.center('To play a ' + lowCyan + 'difficult' + lowBlack + ' game, press [D].');
+	difficultyFrame.draw();
+	difficultyFrame.top();
+
+	userInput = '';
+	while( ascii(userInput) !== 13 && ascii(userInput) !== 68 && ascii(userInput) !== 100 ) {
+		userInput = console.getkey(K_NOCRLF|K_NOECHO);
+	}
+
+	difficultyFrame.close();
+	difficultyFrame.delete();
+
+	// Difficult mode
+	if ( ascii(userInput) == 68 || ascii(userInput) == 100 ) {
+		player.list = [2, 4, 8, 16, 32, 64];
+		player.weight = [0.5, 0.3, 0.1, 0.05, 0.03, 0.02];
+		player.startTiles = 8
+	}
+	// Normal mode
+	else {
+		player.list = [2, 4, 8];
+		player.weight = [0.8, 0.175, 0.025];
+		player.startTiles = 2
+	}
+}
+
+
+
 
 
 
@@ -593,12 +725,16 @@ function instructions() {
 console.clear();
 
 // Frame for the whole app
-var frame = new Frame(1, 1, 80, 24, BG_BLUE);
+var frame = new Frame(1, 1, termCols, termRows, BG_BLUE);
 frame.bottom();
 
 // Title screen
-var titleFrame = new Frame(1, 6, 80, 18, 0, frame);
-titleFrame.load(js.exec_dir + '/ansi/title.ans', 80, 18);
+var titW = 80;
+var titH = 18;
+var titX = findCenterCoord( termCols, titW );
+var titY = findCenterCoord( termRows, titH );
+var titleFrame = new Frame(titX, titY, titW, titH, 0, frame);
+titleFrame.load(js.exec_dir + '/ansi/title.ans', titW, titH);
 titleFrame.draw();
 titleFrame.top();
 
@@ -606,7 +742,7 @@ titleFrame.top();
 var userInput = '';
 while( ascii(userInput) != 13 ) {
 	userInput = console.getkey(K_UPPER | K_NOCRLF);
-	if (ascii(userInput) === 81 ) { exit(); } // reinit
+	if ( ascii(userInput) === 81 ) { exit(); } // reinit
 } // end while
 
 // Close title screen
@@ -614,23 +750,20 @@ titleFrame.close();
 frame.cycle();
 titleFrame.delete();
 
-var statusFrame = new Frame(1, 24, 80, 1, BG_BLUE,frame);
+var statusFrame = new Frame(1, termRows, termCols, 1, BG_BLUE,frame);
 statusFrame.draw();
 statusFrame.top();
 
 
 // Draw game board
-var boardFrame = new Frame(1, 1, 80, 23, BG_BLUE,frame);
-boardFrame.load(js.exec_dir + '/ansi/game-board-23x80.ans', 80, 23);
+var boardFrame = new Frame(1, 1, termCols, termRows-1, BG_BLUE,frame);
+boardFrame.load(js.exec_dir + '/bin/game-board' + suffix + '.bin', termCols, termRows-1);
 boardFrame.draw();
 boardFrame.top();
 
 // Create frame for fixed tiles
-var fixedFrame = new Frame(1, 1, 80, 23, 0, frame);
+var fixedFrame = new Frame(1, 1, termCols, termRows-1, 0, frame);
 fixedFrame.top();
-
-// display instructions
-instructions();
 
 // Create frame for tiles in motion
 //var active = new Frame(1, 1, 80, 25, 0, frame);
@@ -663,6 +796,35 @@ var fixedTiles = [
 	]
 
 ];
+if (largeTerm) {
+	fixedTiles = [
+		[
+			new Frame(4, 2, 30, 12, 0, fixedFrame),
+			new Frame(4, 16, 30, 12, 0, fixedFrame),
+			new Frame(4, 30, 30, 12, 0, fixedFrame),
+			new Frame(4, 44, 30, 12, 0, fixedFrame)
+		],
+		[
+			new Frame(36, 2, 30, 12, 0, fixedFrame),
+			new Frame(36, 16, 30, 12, 0, fixedFrame),
+			new Frame(36, 30, 30, 12, 0, fixedFrame),
+			new Frame(36, 44, 30, 12, 0, fixedFrame)
+		],
+		[
+			new Frame(68, 2, 30, 12, 0, fixedFrame),
+			new Frame(68, 16, 30, 12, 0, fixedFrame),
+			new Frame(68, 30, 30, 12, 0, fixedFrame),
+			new Frame(68, 44, 30, 12, 0, fixedFrame)
+		],
+		[
+			new Frame(100, 2, 30, 12, 0, fixedFrame),
+			new Frame(100, 16, 30, 12, 0, fixedFrame),
+			new Frame(100, 30, 30, 12, 0, fixedFrame),
+			new Frame(100, 44, 30, 12, 0, fixedFrame)
+		]
+	];
+
+}
 
 
 

@@ -5,7 +5,7 @@
 #                                        #
 #      author: Kirkman                   #
 #       email: josh [] joshrenaud.com    #
-#        date: May 26, 2014              #
+#        date: April 29, 2015            #
 #                                        #
 ##########################################
 
@@ -69,6 +69,16 @@ SELF-HOSTED SCOREBOARD:
 ==========================================
 
 RELEASE NOTES:
+
+v1.5:
+Some big changes:
+  * Added new 132x60 mode, featuring new colored tile set
+  * Tweaked the "spawn new tile" algorithm
+  * Added a new "difficult" mode. 
+      - Game starts with 8 tiles on board instead of 2
+      - New tiles can be as high as 64.
+  * Removed a bug where a player could spawn a new tile by pushing
+    an arrow key in a direction in which they couldn't actually move.
 
 v1.0:
 This is the initial release of the game. Likely there are bugs.

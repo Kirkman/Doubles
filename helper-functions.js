@@ -1,3 +1,32 @@
+function findCenterCoord(outer,inner) {
+	var coord = parseInt( (outer - inner)/2 );
+	if (coord < 1) { coord = 1; }
+	return coord;
+}
+
+function weightedRandom(list,weight) {
+	// adapted from http://codetheory.in/weighted-biased-random-number-generation-with-javascript-based-on-probability/
+	var rand = function(min, max) {
+		return Math.floor(Math.random() * (max - min + 1)) + min;
+	};
+	var generateWeighedList = function(list, weight) {
+		var weighed_list = [];
+		// Loop over weights
+		for (var i = 0; i < weight.length; i++) {
+			var multiples = weight[i] * 100;
+			// Loop over the list of items
+			for (var j = 0; j < multiples; j++) {
+				weighed_list.push(list[i]);
+			}
+		}
+		return weighed_list;
+	};
+	var weighed_list = generateWeighedList(list, weight);
+	var random_num = rand(0, weighed_list.length-1);
+	return weighed_list[random_num];
+}
+
+
 function debug(debugText) {
 	var debugFile = new File( js.exec_dir + '/debug.txt' );
 	debugFile.open("a");

@@ -13,6 +13,18 @@ Getting a "2048" tile effectively wins the game.
 
 You lose when the board is full and you cannot combine tiles in any direction.
 
+### What's new?
+
+#### v1.5
+  * Added new 132x60 mode, featuring new colored tile set
+  * Tweaked the "spawn new tile" algorithm
+  * Added a new "difficult" mode. 
+      - Game starts with 8 tiles on board instead of 2
+      - New tiles can be as high as 64.
+  * Removed a bug where players could spawn a new tile by pushing
+    arrow keys in a direction in which they couldn't actually move.
+
+
 ### Requirements
 
 - [Synchronet](http://www.synchro.net) [BBS software](http://cvs.synchro.net/cgi-bin/viewcvs.cgi/)
